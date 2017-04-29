@@ -9,4 +9,4 @@ extern int write_xactions;
 extern int read_xactions;
 
 void printHelp(const char * prog);
-void cache_init(void);
+void cache_init(int setSize, int offsetSize, int indexSize, int tagSize);

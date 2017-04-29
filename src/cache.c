@@ -1,8 +1,13 @@
 #include "cache.h"
 #include "trace.h"
+#include "LinkedList.h"
+#include "Queue.h"
 
 int write_xactions = 0;
 int read_xactions = 0;
+LinkedList* cache;
+Queue* cacheQueue;
+
 
 // Print help message to user
 void printHelp(const char * prog)
@@ -97,27 +102,39 @@ int main(int argc, char* argv[])
 		}
 	}
 
+	int setSize = size / (line * /*TODO associativity*/);
+	int sets = /*TODO*/;
+	int offsetSize = log2((double) line);
+	int indexSize = log2((double) setSize);
+	int tagSize = 32 - (indexSize - offsetSize);
 	// TODO
-	cache_init();
+	cache_init(setSize, offsetSize, indexSize, tagSize);
 
-	printf("Ways: %u; Sets: %u; Line Size: %uB\n", 0, 0, 0/* FIXME */);
-	printf("Tag: %d bits; Index: %d bits; Offset: %d bits\n", 0, 0, 0/* FIXME */);
+	printf("Ways: %u; Sets: %u; Line Size: %uB\n", ways, sets, line);
+	printf("Tag: %d bits; Index: %d bits; Offset: %d bits\n", tagSize, indexSize, offsetSize);
 
-	/* TODO: Now we read the trace file line by line */
+	FILE* fp = fopen(filename, "r");
+	char[12] buff;
+	while(fgets(buff, 12, fp) != NULL) {
+		// TODO do whatever with buff
+	}
+	// If read interrupted end with error
+	if(!feof(fp))
+		return -1;
 
-	/* TODO: Now we simulate the cache */  
+	// TODO Simulate cache
 
-	/* Print results */
+	// Print results
 	printf("Miss Rate: %8lf%%\n", ((double) totalMisses) / ((double) totalMisses + (double) totalHits) * 100.0);
 	printf("Read Transactions: %d\n", read_xactions);
 	printf("Write Transactions: %d\n", write_xactions);
 
-	/* TODO: Now we output the file */
+	// TODO Output file
 
-	/* TODO: Cleanup */
+	// TODO Cleanup
 }
 
-void cache_init(void)
+void cache_init(int setSize, int offsetSize, int indexSize, int tagSize)
 {
-
+	cache = LinkedList_new(setSize, offsetSize, indexSize, tagSize);
 }

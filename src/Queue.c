@@ -25,9 +25,6 @@ Queue* Queue_new(int size)
 		abort();
 	queue->head = NULL;
 	queue->tail = NULL;
-	// FIXME
-	queue->maxSize = size * 1024;
-	queue->size = 0;
 	return queue;
 }
 
@@ -40,7 +37,6 @@ bool Queue_add(Queue* queue, int32_t data)
 {
 	if(size >= maxSize)
 		return false;
-	size++;
 	if(Queue_isEmpty(queue)) {
 		queue->head = QueueNode_new(data, NULL, NULL);
 		queue->tail = queue->head;
@@ -52,9 +48,8 @@ bool Queue_add(Queue* queue, int32_t data)
 }
 
 // TODO This and peek returns 0 when the queue is emptys
-uint32_t Queue_poll(Queue* queue)
+uint32_t Queue_dequeue(Queue* queue)
 {
-	size--;
 	if(Queue_isEmpty(queue)) {
 		return 0;
 	} else {
@@ -82,12 +77,11 @@ void Queue_delete(Queue* queue)
 		free(queue);
 	} else {
 		QueueNode* node = queue->head;
-		while(node->prev != NULL) {
+		while(node != NULL) {
 			QueueNode* newNode = node->prev;
 			free(node);
 			node = newNode;
 		}
-		free(node);
 		free(queue);
 	}
 }
