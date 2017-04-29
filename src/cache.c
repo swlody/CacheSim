@@ -8,7 +8,6 @@ int read_xactions = 0;
 LinkedList* cache;
 Queue* cacheQueue;
 
-
 // Print help message to user
 void printHelp(const char * prog)
 {
@@ -30,6 +29,11 @@ void printHelp(const char * prog)
 	-w : set L1 cache ways
 	-l : set L1 cache line size
 */
+uint64_t 128to64(__uint128_t i)
+{
+	return (uint64_t) i;
+}
+
 
 int main(int argc, char* argv[])
 {
@@ -102,13 +106,11 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	int setSize = size / (line * /*TODO associativity*/);
-	int sets = /*TODO*/;
+	int sets = (size * 1024) / (line * ways);
 	int offsetSize = log2((double) line);
 	int indexSize = log2((double) setSize);
 	int tagSize = 32 - (indexSize - offsetSize);
-	// TODO
-	cache_init(setSize, offsetSize, indexSize, tagSize);
+	cache_init(ways, sets);
 
 	printf("Ways: %u; Sets: %u; Line Size: %uB\n", ways, sets, line);
 	printf("Tag: %d bits; Index: %d bits; Offset: %d bits\n", tagSize, indexSize, offsetSize);
@@ -134,7 +136,11 @@ int main(int argc, char* argv[])
 	// TODO Cleanup
 }
 
-void cache_init(int setSize, int offsetSize, int indexSize, int tagSize)
+void cache_init(int setSize, int sets)
 {
-	cache = LinkedList_new(setSize, offsetSize, indexSize, tagSize);
+	cache = LinkedList_new(setSize);
+	int i;
+	for(i=0; i<sets; i++) {
+		LinkedList_add(cache);
+	}
 }

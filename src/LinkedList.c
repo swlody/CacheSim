@@ -4,61 +4,39 @@
 
 int main(int argc, char* argv){}
 
-LinkedListNode* LinkedList_new(__uint128t data, LinkedListNode* next, LinkedListNode* prev);
+LinkedListNode* LinkedListNode_new(int setSize);
 {
     LinkedListNode* newNode = (LinkedListNode*)malloc(sizeof(LinkedListNode));
-    newNode->data = data;
-    newNode->next = next;
-    newNode->prev = prev;
+    newNode->set = malloc(16*setSize);
+    newNode->next = NULL;
+    newNode->valid = false;
+    newNode->dirty = false;
+    newNode->tag = 0;
     return newNode;
 }
 
-LinkedList* LinkedList_new(int setSize, int offsetSize, int indexSize, int tagSize)
+LinkedList* LinkedList_new(int setSize)
 {
     LinkedList* list = (LinkedList*)malloc(sizeof(LinkedList));
     list->head = NULL;
-    list->tail = NULL;
-    list->offsetSize = offsetSize;
     list->setSize = setSize;
-    list->indexSize = indexSize;
-    list->tagSize = tagSize;
     list->size = 0;
     return list;
 }
 
 bool LinkedList_isEmpty(LinkedList* list)
 {
-    return size == 0;
+    return list->head == NULL;
 }
 
-void LinkedList_add(LinkedList* list, __uint128t data)
+void LinkedList_add(LinkedList* list)
 {
     if(LinkedList_isEmpty(list)) {
-        list->head = LinkedListNode_new(data, NULL, NULL);
-        list->tail = list->head;
+        list->head = LinkedListNode_new(list->setSize);
     } else {
-        list->tail->next = LinkedListNode_new(list, NULL, list->tail);
-        list->tail = list->tail->next;
+        list->tail->next = LinkedListNode_new(list->setSize);
     }
     size++;
-}
-
-bool LinkedList_remove(LinkedList* list, __uint128t data)
-{
-    if(!LinkedList_isEmpty(list)) {
-        LinkedListNode* node = list->head;
-        while(node != NULL) {
-            if(node->data == data) {
-                node->next->prev = node->prev;
-                node->prev->next = node->next;
-                free(node);
-                return true;
-            } else {
-                node = node->next;
-            }
-        }
-    }
-    return false;
 }
 
 void LinkedList_delete(LinkedList* list)
