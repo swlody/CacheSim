@@ -1,10 +1,14 @@
+/*
+ * Ari Geller & Sam Wlody
+ * CSC 252 - Project 4
+ */
+
 #include "LinkedList.h"
 #include <math.h>
 #include <stdbool.h>
+#include <stdlib.h>
 
-int main(int argc, char* argv){}
-
-LinkedListNode* LinkedListNode_new(int setSize);
+LinkedListNode* LinkedListNode_new(int setSize)
 {
     LinkedListNode* newNode = (LinkedListNode*)malloc(sizeof(LinkedListNode));
     newNode->set = malloc(16*setSize);
@@ -19,8 +23,8 @@ LinkedList* LinkedList_new(int setSize)
 {
     LinkedList* list = (LinkedList*)malloc(sizeof(LinkedList));
     list->head = NULL;
+    list->tail = NULL;
     list->setSize = setSize;
-    list->size = 0;
     return list;
 }
 
@@ -31,12 +35,13 @@ bool LinkedList_isEmpty(LinkedList* list)
 
 void LinkedList_add(LinkedList* list)
 {
+    LinkedListNode* newNode = LinkedListNode_new(list->setSize);
     if(LinkedList_isEmpty(list)) {
-        list->head = LinkedListNode_new(list->setSize);
+        list->head = newNode;
+        list->tail = list->head;
     } else {
-        list->tail->next = LinkedListNode_new(list->setSize);
+        list->tail->next = newNode;
     }
-    size++;
 }
 
 void LinkedList_delete(LinkedList* list)

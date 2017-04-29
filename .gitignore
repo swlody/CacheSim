@@ -4,6 +4,7 @@ Instructions.pdf
 
 # Executable
 cacheSim
+cacheSimDebug
 
 # Object files
 *.o

@@ -1,11 +1,15 @@
+/*
+ * Ari Geller & Sam Wlody
+ * CSC 252 - Project 4
+ */
+
 #include "Queue.h"
 #include <stdlib.h>
 #include <stdbool.h>
+#include <stdlib.h>
 
 int size = 0;
 int maxSize;
-
-int main(int argc, char* argv){}
 
 QueueNode* QueueNode_new(uint32_t data, QueueNode* next, QueueNode* prev)
 {

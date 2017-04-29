@@ -1,7 +1,12 @@
+/*
+ * Ari Geller & Sam Wlody
+ * CSC 252 - Project 4
+ */
+
 #include "cache.h"
-#include "trace.h"
 #include "LinkedList.h"
 #include "Queue.h"
+#include <math.h>
 
 int write_xactions = 0;
 int read_xactions = 0;
@@ -29,11 +34,6 @@ void printHelp(const char * prog)
 	-w : set L1 cache ways
 	-l : set L1 cache line size
 */
-uint64_t 128to64(__uint128_t i)
-{
-	return (uint64_t) i;
-}
-
 
 int main(int argc, char* argv[])
 {
@@ -76,6 +76,7 @@ int main(int argc, char* argv[])
 				size = atoi(argv[i]);
 			} else {
 				printf("Incorrect formatting of size value\n");
+				printHelp(argv[0]);
 				return -1; //input failure
 			}
 		} else if(!strcmp(waysString, argv[i])) {
@@ -86,6 +87,7 @@ int main(int argc, char* argv[])
 				ways = atoi(argv[i]);
 			} else {
 				printf("Incorrect formatting of ways value\n");
+				printHelp(argv[0]);
 				return -1; //input failure
 			}
 		} else if(!strcmp(lineString, argv[i])) {
@@ -96,19 +98,21 @@ int main(int argc, char* argv[])
 				line = atoi(argv[i]);
 			} else {
 				printf("Incorrect formatting of line size value\n");
+				printHelp(argv[0]);
 				return -1; //input failure
 			}
 		} else if(!strcmp(traceString, argv[i])) {
 			filename = argv[++i];
 		} else {
-			printf("Unrecognized argument. Exiting.\n");
+			printf("Unrecognized argument.\n");
+			printHelp(argv[0]);
 			return -1;
 		}
 	}
 
 	int sets = (size * 1024) / (line * ways);
 	int offsetSize = log2((double) line);
-	int indexSize = log2((double) setSize);
+	int indexSize = log2((double) sets);
 	int tagSize = 32 - (indexSize - offsetSize);
 	cache_init(ways, sets);
 
@@ -116,15 +120,26 @@ int main(int argc, char* argv[])
 	printf("Tag: %d bits; Index: %d bits; Offset: %d bits\n", tagSize, indexSize, offsetSize);
 
 	FILE* fp = fopen(filename, "r");
-	char[12] buff;
-	while(fgets(buff, 12, fp) != NULL) {
-		// TODO do whatever with buff
-	}
-	// If read interrupted end with error
-	if(!feof(fp))
-		return -1;
+	char buff[13];
+	while(fgets(buff, 13, fp) != NULL) {
+		bool write = buff[0] == 's';
+		buff[12] = '\0';
+		char strAddr[8];
+		memcpy(strAddr, buff+4, 8);
+		uint32_t addr = (uint32_t)strtol(strAddr, NULL, 16);
+		if(write) {
+			write_xactions++;
 
-	// TODO Simulate cache
+		} else {
+			read_xactions++;
+
+		}
+	}
+	// If read interrupted terminate with error code
+	if(!feof(fp)) {
+		printf("Trace file read error.\n");
+		return -1;
+	}
 
 	// Print results
 	printf("Miss Rate: %8lf%%\n", ((double) totalMisses) / ((double) totalMisses + (double) totalHits) * 100.0);
@@ -134,6 +149,7 @@ int main(int argc, char* argv[])
 	// TODO Output file
 
 	// TODO Cleanup
+	return 0;
 }
 
 void cache_init(int setSize, int sets)

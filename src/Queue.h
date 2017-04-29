@@ -1,3 +1,8 @@
+/*
+ * Ari Geller & Sam Wlody
+ * CSC 252 - Project 4
+ */
+
 #ifndef QUEUE_H_
 #define QUEUE_H_
 

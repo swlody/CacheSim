@@ -1,3 +1,8 @@
+/*
+ * Ari Geller & Sam Wlody
+ * CSC 252 - Project 4
+ */
+
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,4 +14,4 @@ extern int write_xactions;
 extern int read_xactions;
 
 void printHelp(const char * prog);
-void cache_init(int setSize, int offsetSize, int indexSize, int tagSize);
+void cache_init(int setSize, int sets);
