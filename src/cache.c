@@ -26,11 +26,6 @@ void printHelp(const char * prog)
 	-l : set L1 cache line size
 */
 
-void cache_init(void)
-{
-
-}
-
 int main(int argc, char* argv[])
 {
 	int i;
@@ -120,4 +115,9 @@ int main(int argc, char* argv[])
 	/* TODO: Now we output the file */
 
 	/* TODO: Cleanup */
+}
+
+void cache_init(void)
+{
+
 }
