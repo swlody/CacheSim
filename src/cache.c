@@ -5,7 +5,8 @@ int write_xactions = 0;
 int read_xactions = 0;
 
 // Print help message to user
-void printHelp(const char * prog) {
+void printHelp(const char * prog)
+{
 	printf("%s [-h] | [-s <size>] [-w <ways>] [-l <line>] [-t <trace>]\n", prog);
 	printf("options:\n");
 	printf("-h: print out help text\n");

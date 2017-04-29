@@ -13,9 +13,12 @@ typedef struct Stack {
 	struct StackNode* head;
 } Stack;
 
+extern int size;
+extern int maxSize;
+
 extern Stack* Stack_new();
 extern bool Stack_isEmpty(Stack* stack);
-extern void Stack_push(Stack* stack, int32_t data);
+extern bool Stack_push(Stack* stack, int32_t data);
 extern int32_t Stak_pop(Stack* stack);
 extern int32_t Stack_peek(Stack* stack);
 extern void Stack_delete(Stack* stack);
