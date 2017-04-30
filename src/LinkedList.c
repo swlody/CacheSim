@@ -52,6 +52,7 @@ void LinkedList_delete(LinkedList* list)
         LinkedListNode* node = list->head;
         while(node != NULL) {
             LinkedListNode* newNode = node->next;
+            free(node->set);
             free(node);
             node = newNode;
         }

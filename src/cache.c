@@ -113,19 +113,19 @@ int main(int argc, char* argv[])
 	int sets = (size * 1024) / (line * ways);
 	int offsetSize = log2((double) line);
 	int indexSize = log2((double) sets);
-	int tagSize = 32 - (indexSize - offsetSize);
+	int tagSize = 32 - (indexSize + offsetSize);
 	cache_init(ways, sets);
 
 	printf("Ways: %u; Sets: %u; Line Size: %uB\n", ways, sets, line);
 	printf("Tag: %d bits; Index: %d bits; Offset: %d bits\n", tagSize, indexSize, offsetSize);
 
 	FILE* fp = fopen(filename, "r");
-	char buff[13];
-	while(fgets(buff, 13, fp) != NULL) {
+	char buff[14];
+	while(fgets(buff, 14, fp) != NULL) {
 		bool write = buff[0] == 's';
-		buff[12] = '\0';
-		char strAddr[8];
+		char strAddr[9];
 		memcpy(strAddr, buff+4, 8);
+		strAddr[8] = '\0';
 		uint32_t addr = (uint32_t)strtol(strAddr, NULL, 16);
 		if(write) {
 			write_xactions++;
@@ -135,11 +135,15 @@ int main(int argc, char* argv[])
 
 		}
 	}
+
 	// If read interrupted terminate with error code
 	if(!feof(fp)) {
 		printf("Trace file read error.\n");
+		fclose(fp);
+		LinkedList_delete(cache);
 		return -1;
 	}
+	fclose(fp);
 
 	// Print results
 	printf("Miss Rate: %8lf%%\n", ((double) totalMisses) / ((double) totalMisses + (double) totalHits) * 100.0);
@@ -149,6 +153,7 @@ int main(int argc, char* argv[])
 	// TODO Output file
 
 	// TODO Cleanup
+	LinkedList_delete(cache);
 	return 0;
 }
 

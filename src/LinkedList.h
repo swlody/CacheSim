@@ -10,16 +10,16 @@
 #include <stdbool.h>
 
 typedef struct LinkedListNode {
-    uint32_t tag;
-    bool valid;
-    bool dirty;
-    __uint128_t* set;
+	uint32_t tag;
+	bool valid;
+	bool dirty;
+	__uint128_t* set;
 	struct LinkedListNode* next;
 	struct LinkedListNode* prev;
 } LinkedListNode;
 
 typedef struct LinkedList {
-    int setSize;
+	int setSize;
 	struct LinkedListNode* head;
 	struct LinkedListNode* tail;
 } LinkedList;
