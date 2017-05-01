@@ -6,13 +6,13 @@
 #ifndef CACHE_H_
 #define CACHE_H_
 
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <inttypes.h>
 #include <stdbool.h>
-#include <ctype.h>
+#include <stdlib.h>
+#include <math.h>
+#include <stdio.h>
 #include <string.h>
-#include <assert.h>
+#include <ctype.h>
 
 extern int write_xactions;
 extern int read_xactions;
@@ -23,32 +23,25 @@ typedef struct Block {
 	struct Block* next;
 } Block;
 
-
-// A set is a LinkedList of blocks
+// A set is a LinkedList (queue) of blocks
 typedef struct Set {
-	struct Block* first;
-	struct Block* last;
-	struct Set* next;
+	struct Block* front;
+	struct Block* back;
+	struct Set* next; // Only used for fully-associative cache
 	int size;
 } Set;
 
-// A cache is a LinkedList of sets
-typedef struct Cache {
-	int setSize;
-	struct Set* first;
-	struct Set* last;
-} Cache;
+extern void printHelp(const char * prog);
 
-extern Block* Block_new();
-extern Set* Set_new(int setSize);
-extern Cache* Cache_new(int setSize);
-extern void Set_addBlock(Set* set, Block* newBlock, int setSize);
+extern void initialize(int sets);
+extern uint32_t getIndex(uint32_t addr, int tagSize, int offsetSize);
+extern uint32_t getTag(uint32_t addr, int indexSize, int offsetSize);
+extern bool FoundInSet(Set* set, uint32_t tag, bool store);
+extern Block* Block_new(bool dirty, uint32_t tag);
+extern Set* Set_new();
 extern bool Set_isEmpty(Set* set);
-extern bool Cache_isEmpty(Cache* cache);
-extern void Cache_addSet(Cache* cache, int index);
-extern void Cache_delete(Cache* cache);
-
-void printHelp(const char * prog);
-void cache_init(int setSize, int sets);
+extern void Set_addBlock(Set* set, Block* newBlock, int setSize);
+extern void Cache_delete(int sets);
+extern void Set_delete(Set* set);
 
 #endif

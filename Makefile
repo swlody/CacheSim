@@ -1,4 +1,4 @@
-FILES := src/cache.c src/Queue.c
+FILES := src/cache.c
 
 cacheSim: $(FILES)
 	gcc -o $@ $^ -O3 -lm -Wall

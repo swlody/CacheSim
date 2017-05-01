@@ -4,15 +4,11 @@
  */
 
 #include "cache.h"
-#include "Queue.h"
-#include <stdbool.h>
-#include <math.h>
 
 int write_xactions = 0;
 int read_xactions = 0;
-Cache* mappedCache;
-Cache* fullyAssociativeCache;
-Set** cacheMap; // lol
+Set* fullyAssociativeCache;
+Set** cache; //cacheMap
 
 // Print help message to user
 void printHelp(const char * prog)
@@ -36,30 +32,6 @@ void printHelp(const char * prog)
 	-l : set L1 cache line size
 */
 
-uint32_t getIndex(uint32_t addr, int tagSize, int offsetSize)
-{
-	return (addr << tagSize) >> (offsetSize + tagSize);
-}
-
-uint32_t getTag(uint32_t addr, int indexSize, int offsetSize)
-{
-	return addr >> (indexSize + offsetSize);
-}
-
-bool FoundInSet(Set* set, int tag, bool store)
-{
-	Block* temp = set->first;
-	while(temp != NULL) {
-		if(temp->tag == tag) {
-			if(store)
-				temp->dirty = 1;
-			return true;
-		}
-		temp = temp->next;
-	}
-	return false;
-}
-
 int main(int argc, char* argv[])
 {
 	int i;
@@ -71,14 +43,14 @@ int main(int argc, char* argv[])
 	int totalHits = 0;
 	int totalMisses = 0;
 
-	char * filename = "";
+	char* filename = "";
 
 	//strings to compare
-	const char helpString[] = "-h";
-	const char sizeString[] = "-s";
-	const char waysString[] = "-w";
-	const char lineString[] = "-l";
-	const char traceString[] = "-t";
+	const char* helpString = "-h";
+	const char* sizeString = "-s";
+	const char* waysString = "-w";
+	const char* lineString = "-l";
+	const char* traceString = "-t";
 
 	if(argc == 1) {
 		// No arguments passed, show help
@@ -142,7 +114,7 @@ int main(int argc, char* argv[])
 	int tagSize = 32 - (indexSize + offsetSize);
 	int numBlocks = ways * sets;
 	// Initialzie the cache
-	cache_init(ways, sets);
+	initialize(sets);
 
 	// Print info
 	printf("Ways: %u; Sets: %u; Line Size: %uB\n", ways, sets, line);
@@ -163,35 +135,37 @@ int main(int argc, char* argv[])
 		strAddr[10] = '\0';
 		// Convert hex string to integer representation
 		uint32_t addr = (uint32_t)strtol(strAddr, NULL, 0);
-		uint32_t index = getIndex(addr, tagSize, offsetSize);
+		// Retrieve index and tag
+		// TODO Is this right?
+		int index = getIndex(addr, tagSize, offsetSize) % sets;
 		uint32_t tag = getTag(addr, indexSize, offsetSize);
 		char* classification;
 
-		if(FoundInSet(cacheMap[index], tag, store)) {
+		// Check if value is found in set based on tag
+		if(FoundInSet(cache[index], tag, store)) {
 			totalHits++;
 			classification = "hit";
 		} else {
+			// Miss
 			totalMisses++;
-			Block* newBlock = Block_new();
-			newBlock->dirty = store;
-			newBlock->tag = tag;
-			Set_addBlock(cacheMap[index], newBlock, ways);
-			if(ways > cacheMap[index]->size) {
-				classification = "compulsory";
-				Set_addBlock(fullyAssociativeCache->first, newBlock, numBlocks);
-			} else if(FoundInSet(fullyAssociativeCache->first, tag, store)) {
+			Block* newBlock = Block_new(store, tag);
+			Set_addBlock(cache[index], newBlock, ways);
+			// Classify the miss
+			// FIXME Check these
+			if(FoundInSet(fullyAssociativeCache, tag, store)) {
 				classification = "conflict";
 			} else {
-				classification = "capacity";
-				Set_addBlock(fullyAssociativeCache->first, newBlock, numBlocks);
+				classification = ways > cache[index]->size ? "compulsory" : "capacity";
+				Set_addBlock(fullyAssociativeCache, newBlock, numBlocks);
 			}
 		}
 		fprintf(fpw, "%c %s %s\n", buff[0], strAddr, classification);
 	}
 	// Cleanup
 	fclose(fpw);
-	Cache_delete(mappedCache);
-	Cache_delete(fullyAssociativeCache);
+	Cache_delete(sets);
+	Set_delete(fullyAssociativeCache);
+
 	// If read interrupted, terminate with error code
 	int returnValue = 0;
 	if(!feof(fp)) {
@@ -201,6 +175,7 @@ int main(int argc, char* argv[])
 	fclose(fp);
 
 	// Print results
+	read_xactions = totalMisses;
 	printf("Miss Rate: %8lf%%\n", ((double) totalMisses) / ((double) totalMisses + (double) totalHits) * 100.0);
 	printf("Read Transactions: %d\n", read_xactions);
 	printf("Write Transactions: %d\n", write_xactions);
@@ -208,124 +183,125 @@ int main(int argc, char* argv[])
 	return returnValue;
 }
 
-void cache_init(int setSize, int sets)
+void initialize(int sets)
 {
 	// Create new associative cache with given number of sets containing setSize number of blocks
-	cacheMap = (Set**)malloc(sizeof(Set)*(sets+1));
-	mappedCache = Cache_new(setSize);
+	cache = (Set**)malloc(sizeof(Set)*sets);
 	int i;
-	for(i=0; i<sets; i++) {
-		Cache_addSet(mappedCache, i);
-	}
-	// Create new fully associative cache with one set of blocks
-	fullyAssociativeCache = Cache_new(setSize * sets);
-	Cache_addSet(fullyAssociativeCache, ++i);
+	for(i=0; i<sets; i++)
+		cache[i] = Set_new();
+	// Create new fully associative cache (single set of blocks)
+	fullyAssociativeCache = Set_new();
 }
 
-Block* Block_new()
+uint32_t getIndex(uint32_t addr, int tagSize, int offsetSize)
 {
-	// Create a new block with valid and dirty initialized to false and no tag
+	return ((addr << tagSize) >> (offsetSize + tagSize));
+}
+
+uint32_t getTag(uint32_t addr, int indexSize, int offsetSize)
+{
+	return addr >> (indexSize + offsetSize);
+}
+
+bool FoundInSet(Set* set, uint32_t tag, bool store)
+{
+	Block* temp = set->front;
+	// Iterate through blocks in set to find tag
+	while(temp != NULL) {
+		if(temp->tag == tag) {
+			if(store)
+				temp->dirty = 1;
+			return true;
+		}
+		temp = temp->next;
+	}
+	return false;
+}
+
+Block* Block_new(bool dirty, uint32_t tag)
+{
+	// Create a new block with dirty initialized to false and no tag
 	Block* newBlock = (Block*)malloc(sizeof(Block));
-	newBlock->dirty = false;
-	newBlock->tag = 0;
+	newBlock->dirty = dirty;
+	newBlock->tag = tag;
+	newBlock->next = NULL;
 	return newBlock;
 }
 
-bool Set_isEmpty(Set* set)
+Set* Set_new()
 {
-	// Set does not yet contain any blocks
-	return set->first == NULL;
-}
-
-void Set_addBlock(Set* set, Block* newBlock, int setSize)
-{
-	if(Set_isEmpty(set)) {
-		set->size++;
-		set->first = newBlock;
-		set->last = set->first;
-	} else if(set->size == setSize) {
-		// Set is full
-		Block* temp = set->first->next;
-		write_xactions += set->first->dirty;
-		free(set->first);
-		set->first = temp;
-		set->last->next = newBlock;
-	} else {
-		set->size++;
-		Block* temp = set->first;
-		while(temp->next != NULL) {
-			temp = temp->next;
-		}
-		temp->next = newBlock;
-	}
-}
-
-Set* Set_new(int setSize)
-{
-	// Create a new set with setSize number of blocks
+	// Create empty set
 	Set* newSet = (Set*)malloc(sizeof(Set));
-	// next is initially null
+	newSet->front = NULL;
+	newSet->back = NULL;
 	newSet->next = NULL;
 	newSet->size = 0;
 	return newSet;
 }
 
-Cache* Cache_new(int setSize)
+bool Set_isEmpty(Set* set)
 {
-	// Initialize the cache with given setSize (ways)
-	Cache* cache = (Cache*)malloc(sizeof(Cache));
-	// First and last initially null
-	cache->first = NULL;
-	cache->last = NULL;
-	cache->setSize = setSize;
-	return cache;
+	// Set does not yet contain any blocks
+	return !set->size;
 }
 
-bool Cache_isEmpty(Cache* cache)
+void Set_addBlock(Set* set, Block* newBlock, int setSize)
 {
-	// This only happens once
-	return cache->first == NULL;
-}
-
-void Cache_addSet(Cache* cache, int index)
-{
-	// Add a new set with the given number of blocks
-	Set* newSet = Set_new(cache->setSize);
-	if(Cache_isEmpty(cache)) {
-		// This only happens once
-		cache->first = newSet;
-		cache->last = cache->first;
+	if(Set_isEmpty(set)) {
+		// Increment size and add front block
+		set->size++;
+		set->front = newBlock;
+		set->back = set->front;
+	} else if(set->size == setSize) {
+		// Set is full
+		// Get rid of first element of set
+		Block* temp = set->front->next;
+		// TODO is this right?
+		write_xactions += set->front->dirty;
+		free(set->front);
+		// Add block to end of set
+		set->front = temp;
+		set->back->next = newBlock;
+		set->back = newBlock;
 	} else {
-		cache->last->next = newSet;
+		// Increment size and concatenate block to end of set
+		set->size++;
+		set->back->next = newBlock;
+		set->back = newBlock;
 	}
-	cacheMap[index] = newSet; // Totally unnecessary for fully-associative cache but whatever
 }
 
-void Cache_delete(Cache* cache)
+void Cache_delete(int sets)
 {
-	if(Cache_isEmpty(cache)) {
-		// This should never happen
-		free(cache);
-	} else {
-		// Get the first set in the cache
-		Set* set = cache->first;
-		// Until all sets have been read...
-		while(set != NULL) {
-			Set* newSet = set->next;
-			// Iterate through the blocks in the set
-			Block* block = set->first;
-			while(block != NULL) {
-				Block* newBlock = block->next;
-				// Free the block
-				free(block);
-				block = newBlock;
-			}
-			// Free the set
-			free(set);
-			set = newSet;
+	// Iterate through all sets in cache deleting one-by-one
+	if(cache != NULL) {
+		int i;
+		for(i=0; i<sets; i++) {
+			// TODO These next three checks might not be necessary
+			if(cache[i] != NULL)
+				Set_delete(cache[i]);
 		}
-		// Free the cache struct
-		free(cache);
 	}
+	// Free allocated cache
+	// TODO
+	if(cache != NULL)
+		free(cache);
 }
 
+void Set_delete(Set* set)
+{
+	// Iterate through blocks in set and delete
+	if(!Set_isEmpty(set)) {
+		Block* block = set->front;
+		while(block != NULL) {
+			Block* temp = block->next;
+			free(block);
+			block = temp;
+		}
+	}
+	// Free allocated set
+	// TODO
+	if(set != NULL)
+		free(set);
+}
