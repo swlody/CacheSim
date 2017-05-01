@@ -42,6 +42,7 @@ typedef struct Cache {
 extern Block* Block_new();
 extern Set* Set_new(int setSize);
 extern Cache* Cache_new(int setSize);
+extern void Set_addBlock(Set* set, Block* newBlock, int setSize);
 extern bool Set_isEmpty(Set* set);
 extern bool Cache_isEmpty(Cache* cache);
 extern void Cache_addSet(Cache* cache, int index);

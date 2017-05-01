@@ -10,8 +10,8 @@
 
 int write_xactions = 0;
 int read_xactions = 0;
-Cache* cache;
-Cache* fullCache;
+Cache* mappedCache;
+Cache* fullyAssociativeCache;
 Set** cacheMap; // lol
 
 // Print help message to user
@@ -38,7 +38,7 @@ void printHelp(const char * prog)
 
 uint32_t getIndex(uint32_t addr, int tagSize, int offsetSize)
 {
-	return (addr << tagSize) >> offsetSize;
+	return (addr << tagSize) >> (offsetSize + tagSize);
 }
 
 uint32_t getTag(uint32_t addr, int indexSize, int offsetSize)
@@ -140,6 +140,7 @@ int main(int argc, char* argv[])
 	int offsetSize = log2((double) line);
 	int indexSize = log2((double) sets);
 	int tagSize = 32 - (indexSize + offsetSize);
+	int numBlocks = ways * sets;
 	// Initialzie the cache
 	cache_init(ways, sets);
 
@@ -162,27 +163,35 @@ int main(int argc, char* argv[])
 		strAddr[10] = '\0';
 		// Convert hex string to integer representation
 		uint32_t addr = (uint32_t)strtol(strAddr, NULL, 0);
-		uint32_t index = getIndex(addr, tagSize, offsetSize) % sets;
+		uint32_t index = getIndex(addr, tagSize, offsetSize);
 		uint32_t tag = getTag(addr, indexSize, offsetSize);
 		char* classification;
+
 		if(FoundInSet(cacheMap[index], tag, store)) {
 			totalHits++;
 			classification = "hit";
 		} else {
 			totalMisses++;
-			if(ways > cacheMap[index]->size)
+			Block* newBlock = Block_new();
+			newBlock->dirty = store;
+			newBlock->tag = tag;
+			Set_addBlock(cacheMap[index], newBlock, ways);
+			if(ways > cacheMap[index]->size) {
 				classification = "compulsory";
-			else if(FoundInSet(fullCache->first, tag, store))
+				Set_addBlock(fullyAssociativeCache->first, newBlock, numBlocks);
+			} else if(FoundInSet(fullyAssociativeCache->first, tag, store)) {
 				classification = "conflict";
-			else
+			} else {
 				classification = "capacity";
+				Set_addBlock(fullyAssociativeCache->first, newBlock, numBlocks);
+			}
 		}
-		// write to file buff[0] + " " + strAddr + " " + classification
-		fprintf(fpw, "%c\t%s\t%s\n", buff[0], strAddr, classification);
+		fprintf(fpw, "%c %s %s\n", buff[0], strAddr, classification);
 	}
 	// Cleanup
 	fclose(fpw);
-	Cache_delete(cache);
+	Cache_delete(mappedCache);
+	Cache_delete(fullyAssociativeCache);
 	// If read interrupted, terminate with error code
 	int returnValue = 0;
 	if(!feof(fp)) {
@@ -203,14 +212,14 @@ void cache_init(int setSize, int sets)
 {
 	// Create new associative cache with given number of sets containing setSize number of blocks
 	cacheMap = (Set**)malloc(sizeof(Set)*(sets+1));
-	cache = Cache_new(setSize);
+	mappedCache = Cache_new(setSize);
 	int i;
 	for(i=0; i<sets; i++) {
-		Cache_addSet(cache, i);
+		Cache_addSet(mappedCache, i);
 	}
 	// Create new fully associative cache with one set of blocks
-	fullCache = Cache_new(setSize * sets);
-	Cache_addSet(fullCache, ++i);
+	fullyAssociativeCache = Cache_new(setSize * sets);
+	Cache_addSet(fullyAssociativeCache, ++i);
 }
 
 Block* Block_new()
