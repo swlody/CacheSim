@@ -27,8 +27,8 @@ Queue* Queue_new(int size)
 	Queue* queue = (Queue*)malloc(sizeof(Queue));
 	if(queue == NULL)
 		abort();
-	queue->head = NULL;
-	queue->tail = NULL;
+	queue->first = NULL;
+	queue->last = NULL;
 	return queue;
 }
 
@@ -42,11 +42,11 @@ bool Queue_add(Queue* queue, int32_t data)
 	if(size >= maxSize)
 		return false;
 	if(Queue_isEmpty(queue)) {
-		queue->head = QueueNode_new(data, NULL, NULL);
-		queue->tail = queue->head;
+		queue->first = QueueNode_new(data, NULL, NULL);
+		queue->last = queue->first;
 	} else {
-		QueueNode* newNode = QueueNode_new(data, queue->tail, NULL);
-		queue->tail = newNode;
+		QueueNode* newNode = QueueNode_new(data, queue->last, NULL);
+		queue->last = newNode;
 	}
 	return true;
 }
@@ -57,11 +57,11 @@ uint32_t Queue_dequeue(Queue* queue)
 	if(Queue_isEmpty(queue)) {
 		return 0;
 	} else {
-		uint32_t data = queue->head->data;
-		QueueNode* newHead = queue->head->prev;
-		free(queue->head);
-		queue->head = newHead;
-		queue->head->next = NULL;
+		uint32_t data = queue->first->data;
+		QueueNode* newHead = queue->first->prev;
+		free(queue->first);
+		queue->first = newHead;
+		queue->first->next = NULL;
 		return data;
 	}
 }
@@ -71,16 +71,16 @@ uint32_t Queue_peek(Queue* queue)
 	if(Queue_isEmpty(queue)) {
 		return 0;
 	} else {
-		return queue->head->data;
+		return queue->first->data;
 	}
 }
 
 void Queue_delete(Queue* queue)
 {
-	if(queue->head == NULL) {
+	if(queue->first == NULL) {
 		free(queue);
 	} else {
-		QueueNode* node = queue->head;
+		QueueNode* node = queue->first;
 		while(node != NULL) {
 			QueueNode* newNode = node->prev;
 			free(node);

@@ -16,8 +16,8 @@ typedef struct QueueNode {
 } QueueNode;
 
 typedef struct Queue {
-	struct QueueNode* head;
-	struct QueueNode* tail;
+	struct QueueNode* first;
+	struct QueueNode* last;
 } Queue;
 
 extern QueueNode* QueueNode_new(uint32_t data, QueueNode* next, QueueNode* prev);
