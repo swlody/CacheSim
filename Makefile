@@ -7,7 +7,6 @@ cacheSimDebug: $(FILES)
 	gcc -o $@ $^ -g -lm -Wall
 
 clean:
-	rm -rf cacheSimDebug.dSYM
 	rm -f cacheSimDebug
 	rm -f cacheSim
 

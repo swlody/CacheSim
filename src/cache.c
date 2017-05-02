@@ -8,6 +8,7 @@
 int write_xactions = 0;
 int read_xactions = 0;
 Set* fullyAssociativeCache;
+Set* infiniteFullyAssociativeCache;
 Set** cache; // cacheTable
 
 // Print help message to user
@@ -131,7 +132,7 @@ int main(int argc, char* argv[])
 	/******** Simulate cache ********/
 	// Until end of trace file...
 	while(fgets(buff, 14, fp) != NULL) {
-		// Get load or store from line
+		// Get load or store from line - defaults to load
 		bool store = buff[0] == 's';
 		char strAddr[11];
 
@@ -144,28 +145,43 @@ int main(int argc, char* argv[])
 
 		// Retrieve index and tag
 		int index = getIndex(addr, tagSize, offsetSize) % sets;
+		// The mapped cache uses the tag portion of the address only
 		uint32_t tag = getTag(addr, indexSize, offsetSize);
+		// Fully associative caches use the entire address ignoring the offset
+		uint32_t fullTag = getTag(addr, 0, offsetSize);
 		char* classification;
 
 		// Check if value is found in set based on tag
 		if(Set_contains(cache[index], tag, store)) {
+			// Hit
 			totalHits++;
 			classification = "hit";
+			if(!Set_contains(fullyAssociativeCache, fullTag, store)) {
+				Set_addBlock(fullyAssociativeCache, blocks, fullTag, store);
+			}
 		} else {
 			// Miss
 			totalMisses++;
-			// A set does not know its size, so set size (ways) is passed to function
-			Set_addBlock(cache[index], ways, store, tag);
-
 			// Classify the miss
-			// FIXME Check these
-			if(Set_contains(fullyAssociativeCache, tag, store)) {
+			if(!Set_contains(infiniteFullyAssociativeCache, fullTag, store)) {
+				// Address has never been seen before
+				classification = "compulsory";
+				/* 
+				 * Using -1 as max size makes the cache essentially infinite.
+				 * Size starts at 0 and == is used for comparison, so -1 will not be reached 
+				 * until after a full overflow cycle (INT_MAX * 2 elements in cache).
+				 */
+				Set_addBlock(infiniteFullyAssociativeCache, -1, fullTag, store);
+				Set_addBlock(fullyAssociativeCache, blocks, fullTag, store);
+			} else if(Set_contains(fullyAssociativeCache, fullTag, store)) {
 				classification = "conflict";
 			} else {
-				classification = ways > cache[index]->size ? "compulsory" : "capacity";
-				// For fully associative cache, set size is total number of blocks (ways * sets)
-				Set_addBlock(fullyAssociativeCache, blocks, store, tag);
+				classification = "capacity";
+				Set_addBlock(fullyAssociativeCache, blocks, fullTag, store);
 			}
+
+			// A set does not know its size, so set size (ways) is passed to function
+			Set_addBlock(cache[index], ways, tag, store);
 		}
 
 		// Print output to file
@@ -176,6 +192,7 @@ int main(int argc, char* argv[])
 	fclose(fpw);
 	Cache_delete(sets);
 	Set_delete(fullyAssociativeCache);
+	Set_delete(infiniteFullyAssociativeCache);
 
 	// If read was interrupted, terminate with error code
 	int returnValue = 0;
@@ -204,6 +221,7 @@ void initialize(int sets)
 
 	// Create new fully associative cache - a single set (FIFO queue) of blocks
 	fullyAssociativeCache = Set_new();
+	infiniteFullyAssociativeCache = Set_new();
 }
 
 // Retrieve raw index from address
@@ -236,8 +254,8 @@ bool Set_contains(Set* set, uint32_t tag, bool store)
 	return false;
 }
 
-// Create a new block with dirty initialized to false and no tag
-Block* Block_new(bool dirty, uint32_t tag)
+// Create a new block
+Block* Block_new(uint32_t tag, bool dirty)
 {
 	Block* block = (Block*)malloc(sizeof(Block));
 	if(block == NULL)
@@ -267,9 +285,9 @@ Set* Set_new()
  * a replacement is necessary. A set does not know its maximum size, so it is
  * passed in with the function call.
  */
-void Set_addBlock(Set* set, int setSize, bool store, uint32_t tag)
+void Set_addBlock(Set* set, int setSize, uint32_t tag, bool store)
 {
-	Block* newBlock = Block_new(store, tag);
+	Block* newBlock = Block_new(tag, store);
 	if(!set->size) {
 		// Set is empty -> increment size and add front block
 		set->size++;
