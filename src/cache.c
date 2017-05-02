@@ -4,6 +4,11 @@
  */
 
 #include "cache.h"
+#include <math.h>
+#include <stdio.h>
+#include <ctype.h>
+#include <stdlib.h>
+#include <string.h>
 
 int write_xactions = 0;
 int read_xactions = 0;
@@ -127,11 +132,11 @@ int main(int argc, char* argv[])
 	FILE* fp = fopen(filename, "r");
 	strcat(filename, ".simulated");
 	FILE* fpw = fopen(filename, "w");
-	char buff[14];
+	char buff[13];
 
 	/******** Simulate cache ********/
 	// Until end of trace file...
-	while(fgets(buff, 14, fp) != NULL) {
+	while(fgets(buff, 13, fp) != NULL) {
 		// Get load or store from line - defaults to load
 		bool store = buff[0] == 's';
 		char strAddr[11];
@@ -156,9 +161,8 @@ int main(int argc, char* argv[])
 			// Hit
 			totalHits++;
 			classification = "hit";
-			if(!Set_contains(fullyAssociativeCache, fullTag, store)) {
+			if(!Set_contains(fullyAssociativeCache, fullTag, store))
 				Set_addBlock(fullyAssociativeCache, blocks, fullTag, store);
-			}
 		} else {
 			// Miss
 			totalMisses++;
@@ -167,7 +171,7 @@ int main(int argc, char* argv[])
 				// Address has never been seen before
 				classification = "compulsory";
 				/* 
-				 * Using -1 as max size makes the cache essentially infinite.
+				 * Using -1 as max size makes the cache effectively infinite.
 				 * Size starts at 0 and == is used for comparison, so -1 will not be reached 
 				 * until after a full overflow cycle (INT_MAX * 2 elements in cache).
 				 */
@@ -198,7 +202,7 @@ int main(int argc, char* argv[])
 	int returnValue = 0;
 	if(!feof(fp)) {
 		printf("Trace file read error.\n");
-		returnValue = -1;;
+		returnValue = -1;
 	}
 	fclose(fp);
 
@@ -214,7 +218,7 @@ int main(int argc, char* argv[])
 void initialize(int sets)
 {
 	// Create new associative cache with given number of sets
-	cache = (Set**)malloc(sizeof(Set)*sets);
+	cache = (Set**)malloc(sizeof(Set*) * sets);
 	int i;
 	for(i=0; i<sets; i++)
 		cache[i] = Set_new();
@@ -227,7 +231,7 @@ void initialize(int sets)
 // Retrieve raw index from address
 uint32_t getIndex(uint32_t addr, int tagSize, int offsetSize)
 {
-	return ((addr << tagSize) >> (offsetSize + tagSize));
+	return (addr << tagSize) >> (offsetSize + tagSize);
 }
 
 // Retrieve tag from address
@@ -245,7 +249,7 @@ bool Set_contains(Set* set, uint32_t tag, bool store)
 	while(temp != NULL) {
 		if(temp->tag == tag) {
 			if(store)
-				temp->dirty = 1;
+				temp->dirty = true;
 			return true;
 		}
 		temp = temp->next;
@@ -295,7 +299,10 @@ void Set_addBlock(Set* set, int setSize, uint32_t tag, bool store)
 		set->back = set->front;
 	} else if(set->size == setSize) {
 		// Set is full -> get rid of first element of set
-		write_xactions += set->front->dirty;
+		// TODO This check can be moved outside of method to decrease runtime?
+		if(set->front->dirty && set != fullyAssociativeCache && set != infiniteFullyAssociativeCache)
+			write_xactions++;
+		
 		if(setSize == 1) {
 			// Direct-mapped cache - replace only element
 			free(set->front);

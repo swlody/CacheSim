@@ -3,20 +3,16 @@
  * CSC 252 - Project 4
  */
 
-#ifndef CACHE_H_
-#define CACHE_H_
+#ifndef _CACHE_H_
+#define _CACHE_H_
 
-#include <inttypes.h>
 #include <stdbool.h>
-#include <stdlib.h>
-#include <math.h>
-#include <stdio.h>
-#include <string.h>
-#include <ctype.h>
+#include <inttypes.h>
 
 extern int write_xactions;
 extern int read_xactions;
 
+// TODO Dirty bit not necessary for fully-associative cache
 typedef struct Block {
 	uint32_t tag;
 	bool dirty;

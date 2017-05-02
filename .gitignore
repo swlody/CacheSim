@@ -1,6 +1,7 @@
 GOLD/
 traces/
 Instructions.pdf
+*.zip
 
 # Executable
 cacheSim
