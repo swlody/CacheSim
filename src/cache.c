@@ -8,7 +8,7 @@
 int write_xactions = 0;
 int read_xactions = 0;
 Set* fullyAssociativeCache;
-Set** cache; //cacheMap
+Set** cache; // cacheTable
 
 // Print help message to user
 void printHelp(const char * prog)
@@ -35,17 +35,17 @@ void printHelp(const char * prog)
 int main(int argc, char* argv[])
 {
 	int i;
-	uint32_t size = 32; //total size of L1$ (KB)
-	uint32_t ways = 1; //# of ways in L1. Default to direct-mapped
-	uint32_t line = 32; //line size (B)
+	uint32_t size = 32; // Total size of L1$ (KB)
+	uint32_t ways = 1;  // # of ways in L1. Default to direct-mapped
+	uint32_t line = 32; // Line size (B)
 
-	// hit and miss counts
+	// Hit and miss counts
 	int totalHits = 0;
 	int totalMisses = 0;
 
 	char* filename = "";
 
-	//strings to compare
+	// Strings to compare
 	const char* helpString = "-h";
 	const char* sizeString = "-s";
 	const char* waysString = "-w";
@@ -58,17 +58,17 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 
-	//parse command line
+	/******** Parse command line ********/
 	for(i=1; i<argc; i++) {
 		//check for help
 		if(!strcmp(helpString, argv[i])) {
-			//print out help text and terminate
+			// Print out help text and terminate
 			printHelp(argv[0]);
 			return 1; //return 1 for help termination
 		} else if(!strcmp(sizeString, argv[i])) {
-			//take next string and convert to int
-			i++; //increment i so that it skips data string in the next loop iteration
-			//check next string's first char. If not digit, fail
+			// Take next string and convert to int
+			i++; // Increment i so that it skips data string in the next loop iteration
+			// Check next string's first char. If not digit, fail
 			if(isdigit(argv[i][0])) {
 				size = atoi(argv[i]);
 			} else {
@@ -88,9 +88,9 @@ int main(int argc, char* argv[])
 				return -1; //input failure
 			}
 		} else if(!strcmp(lineString, argv[i])) {
-			//take next string and convert to int
-			i++; //increment i so that it skips data string in the next loop iteration
-			//check next string's first char. If not digit, fail
+			// Take next string and convert to int
+			i++; // Increment i so that it skips data string in the next loop iteration
+			// Check next string's first char. If not digit, fail
 			if(isdigit(argv[i][0])) {
 				line = atoi(argv[i]);
 			} else {
@@ -107,13 +107,15 @@ int main(int argc, char* argv[])
 		}
 	}
 
+	/******** Initialization ********/
 	// Calculations
-	int sets = (size * 1024) / (line * ways);
-	int offsetSize = log2((double) line);
-	int indexSize = log2((double) sets);
-	int tagSize = 32 - (indexSize + offsetSize);
-	int numBlocks = ways * sets;
-	// Initialzie the cache
+	const int sets = (size * 1024) / (line * ways);
+	const int offsetSize = log2((double) line);
+	const int indexSize = log2((double) sets);
+	const int tagSize = 32 - (indexSize + offsetSize);
+	const int blocks = ways * sets;
+
+	// Initialize the cache
 	initialize(sets);
 
 	// Print info
@@ -125,48 +127,57 @@ int main(int argc, char* argv[])
 	strcat(filename, ".simulated");
 	FILE* fpw = fopen(filename, "w");
 	char buff[14];
+
+	/******** Simulate cache ********/
 	// Until end of trace file...
 	while(fgets(buff, 14, fp) != NULL) {
 		// Get load or store from line
 		bool store = buff[0] == 's';
 		char strAddr[11];
+
 		// Get address in string form from line
 		memcpy(strAddr, buff+2, 10);
 		strAddr[10] = '\0';
+
 		// Convert hex string to integer representation
 		uint32_t addr = (uint32_t)strtol(strAddr, NULL, 0);
+
 		// Retrieve index and tag
-		// TODO Is this right?
 		int index = getIndex(addr, tagSize, offsetSize) % sets;
 		uint32_t tag = getTag(addr, indexSize, offsetSize);
 		char* classification;
 
 		// Check if value is found in set based on tag
-		if(FoundInSet(cache[index], tag, store)) {
+		if(Set_contains(cache[index], tag, store)) {
 			totalHits++;
 			classification = "hit";
 		} else {
 			// Miss
 			totalMisses++;
-			Block* newBlock = Block_new(store, tag);
-			Set_addBlock(cache[index], newBlock, ways);
+			// A set does not know its size, so set size (ways) is passed to function
+			Set_addBlock(cache[index], ways, store, tag);
+
 			// Classify the miss
 			// FIXME Check these
-			if(FoundInSet(fullyAssociativeCache, tag, store)) {
+			if(Set_contains(fullyAssociativeCache, tag, store)) {
 				classification = "conflict";
 			} else {
 				classification = ways > cache[index]->size ? "compulsory" : "capacity";
-				Set_addBlock(fullyAssociativeCache, newBlock, numBlocks);
+				// For fully associative cache, set size is total number of blocks (ways * sets)
+				Set_addBlock(fullyAssociativeCache, blocks, store, tag);
 			}
 		}
+
+		// Print output to file
 		fprintf(fpw, "%c %s %s\n", buff[0], strAddr, classification);
 	}
-	// Cleanup
+
+	/******** Cleanup ********/
 	fclose(fpw);
 	Cache_delete(sets);
 	Set_delete(fullyAssociativeCache);
 
-	// If read interrupted, terminate with error code
+	// If read was interrupted, terminate with error code
 	int returnValue = 0;
 	if(!feof(fp)) {
 		printf("Trace file read error.\n");
@@ -185,29 +196,34 @@ int main(int argc, char* argv[])
 
 void initialize(int sets)
 {
-	// Create new associative cache with given number of sets containing setSize number of blocks
+	// Create new associative cache with given number of sets
 	cache = (Set**)malloc(sizeof(Set)*sets);
 	int i;
 	for(i=0; i<sets; i++)
 		cache[i] = Set_new();
-	// Create new fully associative cache (single set of blocks)
+
+	// Create new fully associative cache - a single set (FIFO queue) of blocks
 	fullyAssociativeCache = Set_new();
 }
 
+// Retrieve raw index from address
 uint32_t getIndex(uint32_t addr, int tagSize, int offsetSize)
 {
 	return ((addr << tagSize) >> (offsetSize + tagSize));
 }
 
+// Retrieve tag from address
 uint32_t getTag(uint32_t addr, int indexSize, int offsetSize)
 {
 	return addr >> (indexSize + offsetSize);
 }
 
-bool FoundInSet(Set* set, uint32_t tag, bool store)
+// Return whether a set contains the given tag
+// Dirty bit toggled if store is true
+bool Set_contains(Set* set, uint32_t tag, bool store)
 {
 	Block* temp = set->front;
-	// Iterate through blocks in set to find tag
+	// Iterate through blocks in set until tag found
 	while(temp != NULL) {
 		if(temp->tag == tag) {
 			if(store)
@@ -216,50 +232,55 @@ bool FoundInSet(Set* set, uint32_t tag, bool store)
 		}
 		temp = temp->next;
 	}
+	// If tag not found return false
 	return false;
 }
 
+// Create a new block with dirty initialized to false and no tag
 Block* Block_new(bool dirty, uint32_t tag)
 {
-	// Create a new block with dirty initialized to false and no tag
-	Block* newBlock = (Block*)malloc(sizeof(Block));
-	newBlock->dirty = dirty;
-	newBlock->tag = tag;
-	newBlock->next = NULL;
-	return newBlock;
+	Block* block = (Block*)malloc(sizeof(Block));
+	if(block == NULL)
+		abort();
+	block->dirty = dirty;
+	block->tag = tag;
+	block->next = NULL;
+	return block;
 }
 
+// Create empty set
 Set* Set_new()
 {
-	// Create empty set
-	Set* newSet = (Set*)malloc(sizeof(Set));
-	newSet->front = NULL;
-	newSet->back = NULL;
-	newSet->next = NULL;
-	newSet->size = 0;
-	return newSet;
+	Set* set = (Set*)malloc(sizeof(Set));
+	if(set == NULL)
+		abort();
+	set->front = NULL;
+	set->back = NULL;
+	set->size = 0;
+	return set;
 }
 
-bool Set_isEmpty(Set* set)
+/*
+ * This function adds a new block with given tag to provided set.
+ * The store boolean determines the dirty bit of the block.
+ * The setSize argument is passed in and is used to determine whether or not
+ * a replacement is necessary. A set does not know its maximum size, so it is
+ * passed in with the function call.
+ */
+void Set_addBlock(Set* set, int setSize, bool store, uint32_t tag)
 {
-	// Set does not yet contain any blocks
-	return !set->size;
-}
-
-void Set_addBlock(Set* set, Block* newBlock, int setSize)
-{
-	if(Set_isEmpty(set)) {
-		// Increment size and add front block
+	Block* newBlock = Block_new(store, tag);
+	if(!set->size) {
+		// Set is empty -> increment size and add front block
 		set->size++;
 		set->front = newBlock;
 		set->back = set->front;
 	} else if(set->size == setSize) {
-		// Set is full
-		// Get rid of first element of set
+		// Set is ful -> get rid of first element of set
 		Block* temp = set->front->next;
-		// TODO is this right?
 		write_xactions += set->front->dirty;
 		free(set->front);
+
 		// Add block to end of set
 		set->front = temp;
 		set->back->next = newBlock;
@@ -272,36 +293,34 @@ void Set_addBlock(Set* set, Block* newBlock, int setSize)
 	}
 }
 
+// Clean up the cache
 void Cache_delete(int sets)
 {
 	// Iterate through all sets in cache deleting one-by-one
 	if(cache != NULL) {
+		// The else condition should never arise
 		int i;
-		for(i=0; i<sets; i++) {
-			// TODO These next three checks might not be necessary
-			if(cache[i] != NULL)
-				Set_delete(cache[i]);
-		}
-	}
-	// Free allocated cache
-	// TODO
-	if(cache != NULL)
+		for(i=0; i<sets; i++)
+			Set_delete(cache[i]);
+
+		// Free allocated cache
 		free(cache);
+	}
 }
 
+// Clean up set, also used for the fully associative cache
 void Set_delete(Set* set)
 {
-	// Iterate through blocks in set and delete
-	if(!Set_isEmpty(set)) {
+	if(set != NULL) {
+		// Else condition should never arise
 		Block* block = set->front;
+		// Iterate through blocks in set and delete
 		while(block != NULL) {
 			Block* temp = block->next;
 			free(block);
 			block = temp;
 		}
-	}
-	// Free allocated set
-	// TODO
-	if(set != NULL)
+		// Free allocated set
 		free(set);
+	}
 }
