@@ -276,14 +276,22 @@ void Set_addBlock(Set* set, int setSize, bool store, uint32_t tag)
 		set->front = newBlock;
 		set->back = set->front;
 	} else if(set->size == setSize) {
-		// Set is ful -> get rid of first element of set
-		Block* temp = set->front->next;
+		// Set is full -> get rid of first element of set
 		write_xactions += set->front->dirty;
-		free(set->front);
+		if(setSize == 1) {
+			// Direct-mapped cache - replace only element
+			free(set->front);
+			set->front = newBlock;
+		} else {
+			// Save next before free
+			Block* temp = set->front->next;
+			free(set->front);
 
-		// Add block to end of set
-		set->front = temp;
-		set->back->next = newBlock;
+			// Replace front with next
+			set->front = temp;
+			set->back->next = newBlock;
+		}
+		// Add new block to end
 		set->back = newBlock;
 	} else {
 		// Increment size and concatenate block to end of set
